@@ -92,6 +92,7 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
 use Symfony\Component\Mime\MimeTypeGuesserInterface;
 use Symfony\Component\Mime\MimeTypes;
 use Symfony\Component\Notifier\Bridge\Firebase\FirebaseTransportFactory;
+use Symfony\Component\Notifier\Bridge\FreeMobile\FreeMobileTransportFactory;
 use Symfony\Component\Notifier\Bridge\Mattermost\MattermostTransportFactory;
 use Symfony\Component\Notifier\Bridge\Nexmo\NexmoTransportFactory;
 use Symfony\Component\Notifier\Bridge\OvhCloud\OvhCloudTransportFactory;
@@ -435,8 +436,7 @@ class FrameworkExtension extends Extension
         $container->registerForAutoconfiguration(CacheClearerInterface::class)
             ->addTag('kernel.cache_clearer');
         $container->registerForAutoconfiguration(CacheWarmerInterface::class)
-            ->addTag('kernel.cache_warmer')
-            ->addTag('container.no_preload');
+            ->addTag('kernel.cache_warmer');
         $container->registerForAutoconfiguration(EventSubscriberInterface::class)
             ->addTag('kernel.event_subscriber');
         $container->registerForAutoconfiguration(LocaleAwareInterface::class)
@@ -2044,6 +2044,7 @@ class FrameworkExtension extends Extension
             RocketChatTransportFactory::class => 'notifier.transport_factory.rocketchat',
             TwilioTransportFactory::class => 'notifier.transport_factory.twilio',
             FirebaseTransportFactory::class => 'notifier.transport_factory.firebase',
+            FreeMobileTransportFactory::class => 'notifier.transport_factory.freemobile',
             OvhCloudTransportFactory::class => 'notifier.transport_factory.ovhcloud',
             SinchTransportFactory::class => 'notifier.transport_factory.sinch',
         ];

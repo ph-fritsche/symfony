@@ -25,7 +25,7 @@
             <argument type="service" id="file_locator" />
         </service>
 
-        <service id="routing.loader.php" class="Symfony\Bundle\FrameworkBundle\Routing\Loader\PhpFileLoader">
+        <service id="routing.loader.php" class="Symfony\Component\Routing\Loader\PhpFileLoader">
             <tag name="routing.loader" />
             <argument type="service" id="file_locator" />
         </service>
@@ -101,7 +101,6 @@
         <service id="router.cache_warmer" class="Symfony\Bundle\FrameworkBundle\CacheWarmer\RouterCacheWarmer">
             <tag name="container.service_subscriber" id="router" />
             <tag name="kernel.cache_warmer" />
-            <tag name="container.no_preload" />
             <argument type="service" id="Psr\Container\ContainerInterface" />
         </service>
 

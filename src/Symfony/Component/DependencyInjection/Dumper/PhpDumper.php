@@ -270,7 +270,7 @@ class %s extends {$options['class']}
 
 EOF;
             $files = [];
-
+            $preloadedFiles = [];
             $ids = $this->container->getRemovedIds();
             foreach ($this->container->getDefinitions() as $id => $definition) {
                 if (!$definition->isPublic()) {
@@ -287,11 +287,16 @@ EOF;
             }
 
             if (!$this->inlineFactories) {
-                foreach ($this->generateServiceFiles($services) as $file => $c) {
+                foreach ($this->generateServiceFiles($services) as $file => [$c, $preload]) {
                     $files[$file] = sprintf($fileTemplate, substr($file, 0, -4), $c);
+
+                    if ($preload) {
+                        $preloadedFiles[$file] = $file;
+                    }
                 }
                 foreach ($proxyClasses as $file => $c) {
                     $files[$file] = "<?php\n".$c;
+                    $preloadedFiles[$file] = $file;
                 }
             }
 
@@ -304,11 +309,16 @@ EOF;
             }
 
             $files[$options['class'].'.php'] = $code;
+            $preloadedFiles[$options['class'].'.php'] = $options['class'].'.php';
             $hash = ucfirst(strtr(ContainerBuilder::hash($files), '._', 'xx'));
             $code = [];
 
             foreach ($files as $file => $c) {
                 $code["Container{$hash}/{$file}"] = substr_replace($c, "<?php\n\nnamespace Container{$hash};\n", 0, 6);
+
+                if (isset($preloadedFiles[$file])) {
+                    $preloadedFiles[$file] = "Container{$hash}/{$file}";
+                }
             }
             $namespaceLine = $this->namespace ? "\nnamespace {$this->namespace};\n" : '';
             $time = $options['build_time'];
@@ -318,8 +328,8 @@ EOF;
             if ($this->preload && null !== $autoloadFile = $this->getAutoloadFile()) {
                 $autoloadFile = substr($this->export($autoloadFile), 2, -1);
 
-                $factoryFiles = array_reverse(array_keys($code));
-                $factoryFiles = implode("';\nrequire __DIR__.'/", $factoryFiles);
+                $preloadedFiles = array_reverse($preloadedFiles);
+                $preloadedFiles = implode("';\nrequire __DIR__.'/", $preloadedFiles);
 
                 $code[$options['class'].'.preload.php'] = <<<EOF
 <?php
@@ -330,7 +340,7 @@ EOF;
 use Symfony\Component\DependencyInjection\Dumper\Preloader;
 
 require $autoloadFile;
-require __DIR__.'/$factoryFiles';
+require __DIR__.'/$preloadedFiles';
 
 \$classes = [];
 
@@ -851,7 +861,8 @@ EOF;
 
             if ($this->getProxyDumper()->isProxyCandidate($definition)) {
                 $factoryCode = $asFile ? "\$this->load('%s', false)" : '$this->%s(false)';
-                $code .= $this->getProxyDumper()->getProxyFactoryCode($definition, $id, sprintf($factoryCode, $methodName));
+                $factoryCode = $this->getProxyDumper()->getProxyFactoryCode($definition, $id, sprintf($factoryCode, $methodName));
+                $code .= $asFile ? preg_replace('/function \(([^)]*+)\) {/', 'function (\1) use ($container) {', $factoryCode) : $factoryCode;
             }
 
             $code .= $this->addServiceInclude($id, $definition);
@@ -1035,7 +1046,7 @@ EOTXT
         ksort($definitions);
         foreach ($definitions as $id => $definition) {
             if ((list($file, $code) = $services[$id]) && null !== $file && ($definition->isPublic() || !$this->isTrivialInstance($definition) || isset($this->locatedIds[$id]))) {
-                yield $file => $code;
+                yield $file => [$code, !$definition->hasTag($this->preloadTags[1]) && !$definition->isDeprecated() && !$definition->hasErrors()];
             }
         }
     }
@@ -1715,7 +1726,11 @@ EOF;
                         if (!$v) {
                             continue;
                         }
-                        $definition = $this->container->findDefinition($id = (string) $v);
+                        $id = (string) $v;
+                        while ($this->container->hasAlias($id)) {
+                            $id = (string) $this->container->getAlias($id);
+                        }
+                        $definition = $this->container->getDefinition($id);
                         $load = !($definition->hasErrors() && $e = $definition->getErrors()) ? $this->asFiles && !$this->inlineFactories && !$this->isHotPath($definition) : reset($e);
                         $serviceMap .= sprintf("\n            %s => [%s, %s, %s, %s],",
                             $this->export($k),
@@ -1787,7 +1802,7 @@ EOF;
                 return $code;
             }
         } elseif ($value instanceof AbstractArgument) {
-            throw new RuntimeException(sprintf('Argument "%s" of service "%s" is abstract%s, did you forget to define it?', $value->getArgumentKey(), $value->getServiceId(), $value->getText() ? ' ('.$value->getText().')' : ''));
+            throw new RuntimeException($value->getTextWithContext());
         } elseif (\is_object($value) || \is_resource($value)) {
             throw new RuntimeException('Unable to dump a service container if a parameter is an object or a resource.');
         }

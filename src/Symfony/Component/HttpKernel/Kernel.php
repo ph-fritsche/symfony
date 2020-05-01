@@ -39,6 +39,9 @@ use Symfony\Component\HttpKernel\Config\FileLocator;
 use Symfony\Component\HttpKernel\DependencyInjection\AddAnnotatedClassesToCachePass;
 use Symfony\Component\HttpKernel\DependencyInjection\MergeExtensionConfigurationPass;
 
+// Help opcache.preload discover always-needed symbols
+class_exists(ConfigCache::class);
+
 /**
  * The Kernel is the heart of the Symfony system.
  *
@@ -280,12 +283,12 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
         if (null === $this->projectDir) {
             $r = new \ReflectionObject($this);
 
-            if (!file_exists($dir = $r->getFileName())) {
+            if (!is_file($dir = $r->getFileName())) {
                 throw new \LogicException(sprintf('Cannot auto-detect project dir for kernel of class "%s".', $r->name));
             }
 
             $dir = $rootDir = \dirname($dir);
-            while (!file_exists($dir.'/composer.json')) {
+            while (!is_file($dir.'/composer.json')) {
                 if ($dir === \dirname($dir)) {
                     return $this->projectDir = $rootDir;
                 }
@@ -432,7 +435,7 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
         $errorLevel = error_reporting(E_ALL ^ E_WARNING);
 
         try {
-            if (file_exists($cachePath) && \is_object($this->container = include $cachePath)
+            if (is_file($cachePath) && \is_object($this->container = include $cachePath)
                 && (!$this->debug || (self::$freshCache[$cachePath] ?? $cache->isFresh()))
             ) {
                 self::$freshCache[$cachePath] = true;
@@ -566,7 +569,7 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
         if ($this->container->has('cache_warmer')) {
             $preload = (array) $this->container->get('cache_warmer')->warmUp($this->container->getParameter('kernel.cache_dir'));
 
-            if (method_exists(Preloader::class, 'append') && file_exists($preloadFile = $cacheDir.'/'.$class.'.preload.php')) {
+            if ($preload && method_exists(Preloader::class, 'append') && file_exists($preloadFile = $cacheDir.'/'.$class.'.preload.php')) {
                 Preloader::append($preloadFile, $preload);
             }
         }

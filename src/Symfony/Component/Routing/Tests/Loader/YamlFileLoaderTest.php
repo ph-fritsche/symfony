@@ -338,6 +338,9 @@ class YamlFileLoaderTest extends TestCase
         $this->assertCount(2, $routes);
         $this->assertEquals('/nl/imported', $routes->get('imported.nl')->getPath());
         $this->assertEquals('/en/imported', $routes->get('imported.en')->getPath());
+
+        $this->assertSame('nl', $routes->get('imported.nl')->getRequirement('_locale'));
+        $this->assertSame('en', $routes->get('imported.en')->getRequirement('_locale'));
     }
 
     public function testImportingRoutesWithOfficialLocales()
@@ -391,5 +394,45 @@ class YamlFileLoaderTest extends TestCase
 
         $loader = new YamlFileLoader(new FileLocator([__DIR__.'/../Fixtures']));
         $loader->load('requirements_without_placeholder_name.yml');
+    }
+
+    public function testImportingRoutesWithHostsInImporter()
+    {
+        $loader = new YamlFileLoader(new FileLocator([__DIR__.'/../Fixtures/locale_and_host']));
+        $routes = $loader->load('importer-with-host.yml');
+
+        $expectedRoutes = require __DIR__.'/../Fixtures/locale_and_host/import-with-host-expected-collection.php';
+
+        $this->assertEquals($expectedRoutes('yml'), $routes);
+    }
+
+    public function testImportingRoutesWithLocalesAndHostInImporter()
+    {
+        $loader = new YamlFileLoader(new FileLocator([__DIR__.'/../Fixtures/locale_and_host']));
+        $routes = $loader->load('importer-with-locale-and-host.yml');
+
+        $expectedRoutes = require __DIR__.'/../Fixtures/locale_and_host/import-with-locale-and-host-expected-collection.php';
+
+        $this->assertEquals($expectedRoutes('yml'), $routes);
+    }
+
+    public function testImportingRoutesWithoutHostInImporter()
+    {
+        $loader = new YamlFileLoader(new FileLocator([__DIR__.'/../Fixtures/locale_and_host']));
+        $routes = $loader->load('importer-without-host.yml');
+
+        $expectedRoutes = require __DIR__.'/../Fixtures/locale_and_host/import-without-host-expected-collection.php';
+
+        $this->assertEquals($expectedRoutes('yml'), $routes);
+    }
+
+    public function testImportingRoutesWithSingleHostInImporter()
+    {
+        $loader = new YamlFileLoader(new FileLocator([__DIR__.'/../Fixtures/locale_and_host']));
+        $routes = $loader->load('importer-with-single-host.yml');
+
+        $expectedRoutes = require __DIR__.'/../Fixtures/locale_and_host/import-with-single-host-expected-collection.php';
+
+        $this->assertEquals($expectedRoutes('yml'), $routes);
     }
 }
