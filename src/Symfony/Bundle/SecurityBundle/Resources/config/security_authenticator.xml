@@ -44,7 +44,7 @@
 
         <!-- Listeners -->
 
-        <service id="security.listener.verify_authenticator_credentials" class="Symfony\Component\Security\Http\EventListener\VerifyAuthenticatorCredentialsListener">
+        <service id="security.listener.check_authenticator_credentials" class="Symfony\Component\Security\Http\EventListener\CheckCredentialsListener">
             <tag name="kernel.event_subscriber" />
             <argument type="service" id="security.encoder_factory" />
         </service>
@@ -109,13 +109,6 @@
             <argument type="abstract">authentication failure handler</argument>
             <argument type="abstract">options</argument>
             <argument type="service" id="property_accessor" on-invalid="null" />
-        </service>
-
-        <service id="security.authenticator.anonymous"
-                 class="Symfony\Component\Security\Http\Authenticator\AnonymousAuthenticator"
-                 abstract="true">
-            <argument type="abstract">secret</argument>
-            <argument type="service" id="security.untracked_token_storage" />
         </service>
 
         <service id="security.authenticator.remember_me"

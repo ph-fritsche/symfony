@@ -347,7 +347,7 @@ require __DIR__.'/$preloadedFiles';
 EOF;
 
                 foreach ($this->preload as $class) {
-                    if (!$class || false !== strpos($class, '$')) {
+                    if (!$class || false !== strpos($class, '$') || \in_array($class, ['int', 'float', 'string', 'bool', 'resource', 'object', 'array', 'null', 'callable', 'iterable', 'mixed', 'void'], true)) {
                         continue;
                     }
                     if (!(class_exists($class, false) || interface_exists($class, false) || trait_exists($class, false)) || (new \ReflectionClass($class))->isUserDefined()) {
@@ -851,7 +851,7 @@ EOF;
             if ($definition->isDeprecated()) {
                 $deprecation = $definition->getDeprecation($id);
                 $code .= sprintf("        trigger_deprecation(%s, %s, %s);\n\n", $this->export($deprecation['package']), $this->export($deprecation['version']), $this->export($deprecation['message']));
-            } elseif (!$definition->hasTag($this->preloadTags[1])) {
+            } elseif ($definition->hasTag($this->hotPathTag) || !$definition->hasTag($this->preloadTags[1])) {
                 foreach ($this->inlinedDefinitions as $def) {
                     foreach ($this->getClasses($def, $id) as $class) {
                         $this->preload[$class] = $class;
@@ -1017,7 +1017,7 @@ EOTXT
         foreach ($definitions as $id => $definition) {
             if (!$definition->isSynthetic()) {
                 $services[$id] = $this->addService($id, $definition);
-            } elseif (!$definition->hasTag($this->preloadTags[1])) {
+            } elseif ($definition->hasTag($this->hotPathTag) || !$definition->hasTag($this->preloadTags[1])) {
                 $services[$id] = null;
 
                 foreach ($this->getClasses($definition, $id) as $class) {
@@ -1046,7 +1046,7 @@ EOTXT
         ksort($definitions);
         foreach ($definitions as $id => $definition) {
             if ((list($file, $code) = $services[$id]) && null !== $file && ($definition->isPublic() || !$this->isTrivialInstance($definition) || isset($this->locatedIds[$id]))) {
-                yield $file => [$code, !$definition->hasTag($this->preloadTags[1]) && !$definition->isDeprecated() && !$definition->hasErrors()];
+                yield $file => [$code, $definition->hasTag($this->hotPathTag) || !$definition->hasTag($this->preloadTags[1]) && !$definition->isDeprecated() && !$definition->hasErrors()];
             }
         }
     }

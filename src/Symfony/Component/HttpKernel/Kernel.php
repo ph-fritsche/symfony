@@ -35,6 +35,7 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Bundle\BundleInterface;
+use Symfony\Component\HttpKernel\CacheWarmer\WarmableInterface;
 use Symfony\Component\HttpKernel\Config\FileLocator;
 use Symfony\Component\HttpKernel\DependencyInjection\AddAnnotatedClassesToCachePass;
 use Symfony\Component\HttpKernel\DependencyInjection\MergeExtensionConfigurationPass;
@@ -72,15 +73,15 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
 
     private static $freshCache = [];
 
-    const VERSION = '5.1.0-DEV';
-    const VERSION_ID = 50100;
+    const VERSION = '5.2.0-DEV';
+    const VERSION_ID = 50200;
     const MAJOR_VERSION = 5;
-    const MINOR_VERSION = 1;
+    const MINOR_VERSION = 2;
     const RELEASE_VERSION = 0;
     const EXTRA_VERSION = 'DEV';
 
-    const END_OF_MAINTENANCE = '01/2021';
-    const END_OF_LIFE = '01/2021';
+    const END_OF_MAINTENANCE = '07/2021';
+    const END_OF_LIFE = '07/2021';
 
     public function __construct(string $environment, bool $debug)
     {
@@ -222,9 +223,7 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
     public function getBundle(string $name)
     {
         if (!isset($this->bundles[$name])) {
-            $class = get_debug_type($this);
-
-            throw new \InvalidArgumentException(sprintf('Bundle "%s" does not exist or it is not enabled. Maybe you forgot to add it in the "registerBundles()" method of your "%s.php" file?', $name, $class));
+            throw new \InvalidArgumentException(sprintf('Bundle "%s" does not exist or it is not enabled. Maybe you forgot to add it in the "registerBundles()" method of your "%s.php" file?', $name, get_debug_type($this)));
         }
 
         return $this->bundles[$name];
@@ -399,6 +398,7 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
         $class = static::class;
         $class = false !== strpos($class, "@anonymous\0") ? get_parent_class($class).str_replace('.', '_', ContainerBuilder::hash($class)) : $class;
         $class = str_replace('\\', '_', $class).ucfirst($this->environment).($this->debug ? 'Debug' : '').'Container';
+
         if (!preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $class)) {
             throw new \InvalidArgumentException(sprintf('The environment "%s" contains invalid characters, it can only contain characters allowed in PHP class names.', $this->environment));
         }
@@ -566,12 +566,14 @@ abstract class Kernel implements KernelInterface, RebootableInterface, Terminabl
             touch($oldContainerDir.'.legacy');
         }
 
-        if ($this->container->has('cache_warmer')) {
-            $preload = (array) $this->container->get('cache_warmer')->warmUp($this->container->getParameter('kernel.cache_dir'));
+        $preload = $this instanceof WarmableInterface ? (array) $this->warmUp($this->container->getParameter('kernel.cache_dir')) : [];
 
-            if ($preload && method_exists(Preloader::class, 'append') && file_exists($preloadFile = $cacheDir.'/'.$class.'.preload.php')) {
-                Preloader::append($preloadFile, $preload);
-            }
+        if ($this->container->has('cache_warmer')) {
+            $preload = array_merge($preload, (array) $this->container->get('cache_warmer')->warmUp($this->container->getParameter('kernel.cache_dir')));
+        }
+
+        if ($preload && method_exists(Preloader::class, 'append') && file_exists($preloadFile = $cacheDir.'/'.$class.'.preload.php')) {
+            Preloader::append($preloadFile, $preload);
         }
     }
 

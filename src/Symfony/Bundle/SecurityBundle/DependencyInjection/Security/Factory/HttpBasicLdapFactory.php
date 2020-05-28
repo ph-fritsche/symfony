@@ -28,6 +28,8 @@ use Symfony\Component\Security\Core\Exception\LogicException;
  */
 class HttpBasicLdapFactory extends HttpBasicFactory
 {
+    use LdapFactoryTrait;
+
     public function create(ContainerBuilder $container, string $id, array $config, string $userProvider, ?string $defaultEntryPoint)
     {
         $provider = 'security.authentication.provider.ldap_bind.'.$id;
@@ -43,7 +45,7 @@ class HttpBasicLdapFactory extends HttpBasicFactory
         ;
 
         // entry point
-        $entryPointId = $this->createEntryPoint($container, $id, $config, $defaultEntryPoint);
+        $entryPointId = $this->registerEntryPoint($container, $id, $config, $defaultEntryPoint);
 
         if (!empty($config['query_string'])) {
             if ('' === $config['search_dn'] || '' === $config['search_password']) {

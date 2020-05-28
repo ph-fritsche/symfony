@@ -33,6 +33,7 @@ use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
+use Symfony\Component\Ldap\Entry;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Symfony\Component\Security\Core\Encoder\NativePasswordEncoder;
 use Symfony\Component\Security\Core\Encoder\SodiumPasswordEncoder;
@@ -110,7 +111,18 @@ class SecurityExtension extends Extension implements PrependExtensionInterface
         $loader->load('security_rememberme.xml');
 
         if ($this->authenticatorManagerEnabled = $config['enable_authenticator_manager']) {
+            if ($config['always_authenticate_before_granting']) {
+                throw new InvalidConfigurationException('The security option "always_authenticate_before_granting" cannot be used when "enable_authenticator_manager" is set to true. If you rely on this behavior, set it to false.');
+            }
+
             $loader->load('security_authenticator.xml');
+
+            // The authenticator system no longer has anonymous tokens. This makes sure AccessListener
+            // and AuthorizationChecker do not throw AuthenticationCredentialsNotFoundException when no
+            // token is available in the token storage.
+            $container->getDefinition('security.access_listener')->setArgument(4, false);
+            $container->getDefinition('security.authorization_checker')->setArgument(4, false);
+            $container->getDefinition('security.authorization_checker')->setArgument(5, false);
         } else {
             $loader->load('security_legacy.xml');
         }
@@ -268,7 +280,8 @@ class SecurityExtension extends Extension implements PrependExtensionInterface
             list($matcher, $listeners, $exceptionListener, $logoutListener) = $this->createFirewall($container, $name, $firewall, $authenticationProviders, $providerIds, $configId);
 
             $contextId = 'security.firewall.map.context.'.$name;
-            $context = new ChildDefinition($firewall['stateless'] || empty($firewall['anonymous']['lazy']) ? 'security.firewall.context' : 'security.firewall.lazy_context');
+            $isLazy = !$firewall['stateless'] && (!empty($firewall['anonymous']['lazy']) || $firewall['lazy']);
+            $context = new ChildDefinition($isLazy ? 'security.firewall.lazy_context' : 'security.firewall.context');
             $context = $container->setDefinition($contextId, $context);
             $context
                 ->replaceArgument(0, new IteratorArgument($listeners))
@@ -443,6 +456,9 @@ class SecurityExtension extends Extension implements PrependExtensionInterface
         if (!$this->authenticatorManagerEnabled) {
             $authenticationProviders = array_merge($authenticationProviders, $firewallAuthenticationProviders);
         } else {
+            // $configuredEntryPoint is resolved into a service ID and stored in $defaultEntryPoint
+            $configuredEntryPoint = $defaultEntryPoint;
+
             // authenticator manager
             $authenticators = array_map(function ($id) {
                 return new Reference($id);
@@ -543,7 +559,7 @@ class SecurityExtension extends Extension implements PrependExtensionInterface
                             $authenticationProviders[] = $authenticators;
                         }
 
-                        if ($factory instanceof EntryPointFactoryInterface && ($entryPoint = $factory->createEntryPoint($container, $id, $firewall[$key], null))) {
+                        if ($factory instanceof EntryPointFactoryInterface && ($entryPoint = $factory->registerEntryPoint($container, $id, $firewall[$key]))) {
                             $entryPoints[$key] = $entryPoint;
                         }
                     } else {

@@ -4,6 +4,7 @@ CHANGELOG
 5.1.0
 -----
 
+ * deprecated `inline()` in favor of `inline_service()` and `ref()` in favor of `service()` when using the PHP-DSL
  * allow decorators to reference their decorated service using the special `.inner` id
  * added support to autowire public typed properties in php 7.4
  * added support for defining method calls, a configurator, and property setters in `InlineServiceConfigurator`
@@ -16,9 +17,12 @@ CHANGELOG
    configure them explicitly instead
  * added class `Symfony\Component\DependencyInjection\Dumper\Preloader` to help with preloading on PHP 7.4+
  * added tags `container.preload`/`.no_preload` to declare extra classes to preload/services to not preload
+ * allowed loading and dumping tags with an attribute named "name"
  * deprecated `Definition::getDeprecationMessage()`, use `Definition::getDeprecation()` instead
  * deprecated `Alias::getDeprecationMessage()`, use `Alias::getDeprecation()` instead
  * deprecated PHP-DSL's `inline()` function, use `service()` instead
+ * added support of PHP8 static return type for withers
+ * added `AliasDeprecatedPublicServicesPass` to deprecate public services to private
 
 5.0.0
 -----

@@ -46,6 +46,7 @@ use Symfony\Component\DependencyInjection\Tests\Fixtures\CustomDefinition;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\FooWithAbstractArgument;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\ScalarFactory;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\SimilarArgumentsDummy;
+use Symfony\Component\DependencyInjection\Tests\Fixtures\WitherStaticReturnType;
 use Symfony\Component\DependencyInjection\TypedReference;
 use Symfony\Component\ExpressionLanguage\Expression;
 
@@ -1624,6 +1625,25 @@ class ContainerBuilderTest extends TestCase
         $this->assertInstanceOf(Foo::class, $wither->foo);
     }
 
+    /**
+     * @requires PHP 8
+     */
+    public function testWitherWithStaticReturnType()
+    {
+        $container = new ContainerBuilder();
+        $container->register(Foo::class);
+
+        $container
+            ->register('wither', WitherStaticReturnType::class)
+            ->setPublic(true)
+            ->setAutowired(true);
+
+        $container->compile();
+
+        $wither = $container->get('wither');
+        $this->assertInstanceOf(Foo::class, $wither->foo);
+    }
+
     public function testAutoAliasing()
     {
         $container = new ContainerBuilder();
@@ -1640,6 +1660,44 @@ class ContainerBuilderTest extends TestCase
         $container->compile();
 
         $this->assertInstanceOf(D::class, $container->get(X::class));
+    }
+
+    /**
+     * @group legacy
+     */
+    public function testDirectlyAccessingDeprecatedPublicService()
+    {
+        $this->expectDeprecation('Since foo/bar 3.8: Accessing the "Symfony\Component\DependencyInjection\Tests\A" service directly from the container is deprecated, use dependency injection instead.');
+
+        $container = new ContainerBuilder();
+        $container
+            ->register(A::class)
+            ->setPublic(true)
+            ->addTag('container.private', ['package' => 'foo/bar', 'version' => '3.8']);
+
+        $container->compile();
+
+        $container->get(A::class);
+    }
+
+    public function testReferencingDeprecatedPublicService()
+    {
+        $container = new ContainerBuilder();
+        $container
+            ->register(A::class)
+            ->setPublic(true)
+            ->addTag('container.private', ['package' => 'foo/bar', 'version' => '3.8']);
+        $container
+            ->register(B::class)
+            ->setPublic(true)
+            ->addArgument(new Reference(A::class));
+
+        $container->compile();
+
+        // No deprecation should be triggered.
+        $container->get(B::class);
+
+        $this->addToAssertionCount(1);
     }
 }
 

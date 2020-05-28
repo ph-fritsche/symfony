@@ -18,6 +18,7 @@ use Symfony\Component\Messenger\Exception\TransportException;
 
 /**
  * @requires extension redis >= 4.3.0
+ * @group integration
  */
 class ConnectionTest extends TestCase
 {
@@ -25,9 +26,8 @@ class ConnectionTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        $redis = Connection::fromDsn('redis://localhost/queue');
-
         try {
+            $redis = Connection::fromDsn('redis://localhost/queue');
             $redis->get();
         } catch (TransportException $e) {
             if (0 === strpos($e->getMessage(), 'ERR unknown command \'X')) {
@@ -35,6 +35,8 @@ class ConnectionTest extends TestCase
             }
 
             throw $e;
+        } catch (\RedisException $e) {
+            self::markTestSkipped($e->getMessage());
         }
     }
 
@@ -156,7 +158,7 @@ class ConnectionTest extends TestCase
     public function testFailedAuth()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Redis connection failed');
+        $this->expectExceptionMessage('Redis connection ');
         $redis = $this->getMockBuilder(\Redis::class)->disableOriginalConstructor()->getMock();
 
         $redis->expects($this->exactly(1))->method('auth')

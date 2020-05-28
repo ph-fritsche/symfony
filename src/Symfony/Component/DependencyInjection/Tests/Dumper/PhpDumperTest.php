@@ -42,6 +42,7 @@ use Symfony\Component\DependencyInjection\Tests\Fixtures\ScalarFactory;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\StubbedTranslator;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\TestDefinition1;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\TestServiceSubscriber;
+use Symfony\Component\DependencyInjection\Tests\Fixtures\WitherStaticReturnType;
 use Symfony\Component\DependencyInjection\TypedReference;
 use Symfony\Component\DependencyInjection\Variable;
 use Symfony\Component\ExpressionLanguage\Expression;
@@ -1363,6 +1364,31 @@ class PhpDumperTest extends TestCase
     }
 
     /**
+     * @requires PHP 8
+     */
+    public function testWitherWithStaticReturnType()
+    {
+        $container = new ContainerBuilder();
+        $container->register(Foo::class);
+
+        $container
+            ->register('wither', WitherStaticReturnType::class)
+            ->setPublic(true)
+            ->setAutowired(true);
+
+        $container->compile();
+        $dumper = new PhpDumper($container);
+        $dump = $dumper->dump(['class' => 'Symfony_DI_PhpDumper_Service_WitherStaticReturnType']);
+        $this->assertStringEqualsFile(self::$fixturesPath.'/php/services_wither_staticreturntype.php', $dump);
+        eval('?>'.$dump);
+
+        $container = new \Symfony_DI_PhpDumper_Service_WitherStaticReturnType();
+
+        $wither = $container->get('wither');
+        $this->assertInstanceOf(Foo::class, $wither->foo);
+    }
+
+    /**
      * @group legacy
      */
     public function testMultipleDeprecatedAliasesWorking()
@@ -1402,6 +1428,54 @@ class PhpDumperTest extends TestCase
 
         $dumper = new PhpDumper($container);
         $dumper->dump();
+    }
+
+    /**
+     * @group legacy
+     */
+    public function testDirectlyAccessingDeprecatedPublicService()
+    {
+        $this->expectDeprecation('Since foo/bar 3.8: Accessing the "bar" service directly from the container is deprecated, use dependency injection instead.');
+
+        $container = new ContainerBuilder();
+        $container
+            ->register('bar', \BarClass::class)
+            ->setPublic(true)
+            ->addTag('container.private', ['package' => 'foo/bar', 'version' => '3.8']);
+
+        $container->compile();
+
+        $dumper = new PhpDumper($container);
+        eval('?>'.$dumper->dump(['class' => 'Symfony_DI_PhpDumper_Test_Directly_Accessing_Deprecated_Public_Service']));
+
+        $container = new \Symfony_DI_PhpDumper_Test_Directly_Accessing_Deprecated_Public_Service();
+
+        $container->get('bar');
+    }
+
+    public function testReferencingDeprecatedPublicService()
+    {
+        $container = new ContainerBuilder();
+        $container
+            ->register('bar', \BarClass::class)
+            ->setPublic(true)
+            ->addTag('container.private', ['package' => 'foo/bar', 'version' => '3.8']);
+        $container
+            ->register('bar_user', \BarUserClass::class)
+            ->setPublic(true)
+            ->addArgument(new Reference('bar'));
+
+        $container->compile();
+
+        $dumper = new PhpDumper($container);
+        eval('?>'.$dumper->dump(['class' => 'Symfony_DI_PhpDumper_Test_Referencing_Deprecated_Public_Service']));
+
+        $container = new \Symfony_DI_PhpDumper_Test_Referencing_Deprecated_Public_Service();
+
+        // No deprecation should be triggered.
+        $container->get('bar_user');
+
+        $this->addToAssertionCount(1);
     }
 }
 

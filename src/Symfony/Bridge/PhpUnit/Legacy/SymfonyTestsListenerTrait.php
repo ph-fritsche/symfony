@@ -253,7 +253,7 @@ class SymfonyTestsListenerTrait
         $groups = Test::getGroups($className, $test->getName(false));
 
         if ($this->checkNumAssertions) {
-            if (!self::$expectedDeprecations && !$test->getNumAssertions()) {
+            if (!self::$expectedDeprecations && !$test->getNumAssertions() && $test->getTestResultObject()->noneSkipped()) {
                 $test->getTestResultObject()->addFailure($test, new RiskyTestError('This test did not perform any assertions'), $time);
             }
 
@@ -320,7 +320,7 @@ class SymfonyTestsListenerTrait
         if (\is_array($parsedMsg)) {
             $msg = $parsedMsg['deprecation'];
         }
-        if (error_reporting()) {
+        if (error_reporting() & $type) {
             $msg = 'Unsilenced deprecation: '.$msg;
         }
         self::$gatheredDeprecations[] = $msg;

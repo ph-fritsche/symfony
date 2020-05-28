@@ -12,6 +12,7 @@
 namespace Symfony\Component\Messenger\Bridge\Doctrine\Tests\Transport;
 
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Version;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Bridge\Doctrine\Tests\Fixtures\DummyMessage;
 use Symfony\Component\Messenger\Bridge\Doctrine\Transport\Connection;
@@ -27,6 +28,13 @@ class DoctrineIntegrationTest extends TestCase
     private $connection;
     /** @var string */
     private $sqliteFile;
+
+    public static function setUpBeforeClass(): void
+    {
+        if (\PHP_VERSION_ID >= 80000 && class_exists(Version::class)) {
+            self::markTestSkipped('Doctrine DBAL 2.x is incompatible with PHP 8.');
+        }
+    }
 
     protected function setUp(): void
     {
@@ -56,15 +64,14 @@ class DoctrineIntegrationTest extends TestCase
     {
         $this->connection->send('{"message": "Hi i am delayed"}', ['type' => DummyMessage::class], 600000);
 
-        $available_at = $this->driverConnection->createQueryBuilder()
+        $stmt = $this->driverConnection->createQueryBuilder()
             ->select('m.available_at')
             ->from('messenger_messages', 'm')
             ->where('m.body = :body')
             ->setParameter(':body', '{"message": "Hi i am delayed"}')
-            ->execute()
-            ->fetchColumn();
+            ->execute();
 
-        $available_at = new \DateTime($available_at);
+        $available_at = new \DateTime(method_exists($stmt, 'fetchOne') ? $stmt->fetchOne() : $stmt->fetchColumn());
 
         $now = new \DateTime();
         $now->modify('+60 seconds');
